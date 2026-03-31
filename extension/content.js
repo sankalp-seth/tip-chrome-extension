@@ -995,40 +995,43 @@ async function defineGroups(substageCard, teams) {
   await waitForDialog('Define Groups');
   await sleep(500);
 
+  // Detect mode ONCE before the loop:
+  // FFA — all team slots are pre-rendered in the dialog (no "Add Team" button needed).
+  // ONE_V_ONE — only the first slot exists; "Add Team and Players" must be clicked for each extra team.
+  const modal = () => document.querySelector('.MuiModal-root:not([aria-hidden="true"])') || document.body;
+  const _findAddTeamBtn = () => {
+    const btn = Array.from(modal().querySelectorAll('button'))
+      .find(b => _btnLabel(b).includes('add team and players') || _btnLabel(b).includes('add team'));
+    return btn || null;
+  };
+  const prePopulated = document.querySelectorAll('input#selectedTeam').length >= teams.length;
+  log(`[DEBUG] Define Groups mode: ${prePopulated ? 'FFA (pre-populated)' : 'ONE_V_ONE (add-per-team)'}`);
+
   for (let ti = 0; ti < teams.length; ti++) {
     const team = teams[ti];
-    // Search the active panel first, fall back to full document
-    // Try to find "Add Team and Players" button — FFA substages may pre-populate rows so it won't appear
-    let addTeamBtn = null;
-    try {
-      addTeamBtn = await waitFor(() => {
-        const containers = [
-          document.querySelector('[active]'),
-          document.querySelector('.MuiModal-root:not([aria-hidden="true"])'),
-          document.body,
-        ].filter(Boolean);
-        for (const c of containers) {
-          const btn = Array.from(c.querySelectorAll('button'))
-            .find(b => _btnLabel(b).includes('add team and players') || _btnLabel(b).includes('add team'));
-          if (btn) return btn;
-        }
-        return null;
-      }, 5000);
-    } catch (_) {
-      // Rows may already be pre-populated (FFA with team count set) — skip the add click
-    }
-    if (addTeamBtn) {
-      addTeamBtn.click();
-      await sleep(800);
-    }
 
-    // Find the team search input for THIS row — the LAST enabled, empty input with id="selectedTeam"
+    // ONE_V_ONE: click "Add Team and Players" for every team after the first slot
+    if (!prePopulated && ti > 0) {
+      let addTeamBtn = _findAddTeamBtn();
+      if (!addTeamBtn) {
+        try { addTeamBtn = await waitFor(_findAddTeamBtn, 2000); } catch (_) {}
+      }
+      if (addTeamBtn) {
+        addTeamBtn.click();
+        await sleep(800);
+      }
+    }
+    // FFA: slots already exist — no button click needed, go straight to filling
+
+    // Find the team search input for THIS row by index (ti).
+    // FFA pre-populates all rows so all inputs start empty — must use ti to pick the correct slot,
+    // not always the last one (which caused team[0] to land in Team 2's slot).
     const teamInput = await waitFor(() => {
       const byId = Array.from(document.querySelectorAll('input#selectedTeam:not([disabled])'));
-      // For team 2+, previously selected teams are disabled — pick the last enabled empty one
       const empty = byId.filter(i => !i.value);
-      if (empty.length) return empty[empty.length - 1];
-      if (byId.length) return byId[byId.length - 1];
+      // Pick the ti-th empty slot; fall back to last if index out of range (ONE_V_ONE adds rows one at a time)
+      if (empty.length) return empty[ti] || empty[empty.length - 1];
+      if (byId.length) return byId[ti] || byId[byId.length - 1];
       const inputs = Array.from(document.querySelectorAll('input:not([disabled])'));
       return inputs.filter(i => (i.type === 'text' || i.type === '') && !i.value).pop() || null;
     }, 5000);
@@ -1043,9 +1046,9 @@ async function defineGroups(substageCard, teams) {
     });
     if (teamFailed) continue;
 
-    // Verify team was actually selected correctly
+    // Verify team was actually selected correctly (check the ti-th slot)
     const allTeamInputs = Array.from(document.querySelectorAll('input#selectedTeam'));
-    const teamCheck = allTeamInputs[allTeamInputs.length - 1];
+    const teamCheck = allTeamInputs[ti] || allTeamInputs[allTeamInputs.length - 1];
     const teamVal = teamCheck?.value || '';
     log(`[DEBUG] Team input value: "${teamVal}" (expected: "${team.name}")`);
     if (!teamVal) {
@@ -1066,16 +1069,17 @@ async function defineGroups(substageCard, teams) {
     });
     await sleep(500);
 
-    // Find the players combobox for THIS row — the last one without selections
+    // Find the players combobox for THIS row by index (ti) — same reason as teamInput above.
+    // FFA pre-populates all rows so picking "last empty" always hits the wrong slot.
     const allPlayerCombos = Array.from(document.querySelectorAll('#selectedPlayer'));
     log(`[DEBUG] Found ${allPlayerCombos.length} #selectedPlayer elements`);
-    // Prefer the one that doesn't have selected values yet (empty textContent or no chips)
     const emptyPlayerCombos = allPlayerCombos.filter(el => {
       const hidden = el.querySelector('input[type="hidden"]') || el.querySelector('input');
       return !hidden?.value;
     });
-    const playersCombo = emptyPlayerCombos[emptyPlayerCombos.length - 1] || allPlayerCombos[allPlayerCombos.length - 1] ||
-      Array.from(document.querySelectorAll('[role="combobox"]')).filter(el => el.tagName !== 'INPUT').pop();
+    const playersCombo = emptyPlayerCombos[ti] || emptyPlayerCombos[emptyPlayerCombos.length - 1]
+      || allPlayerCombos[ti] || allPlayerCombos[allPlayerCombos.length - 1]
+      || Array.from(document.querySelectorAll('[role="combobox"]')).filter(el => el.tagName !== 'INPUT').pop();
     log(`[DEBUG] Using playersCombo: tag=${playersCombo?.tagName}, id=${playersCombo?.id}, hasValue=${!!playersCombo?.querySelector('input')?.value}`);
 
     const validPlayers = team.players.map(p => p.name).filter(n => n && n.trim());
