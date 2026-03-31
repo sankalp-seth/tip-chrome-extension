@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TIP Automator</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="header">
+    <h1>TIP Automator</h1>
+    <select id="env-select" class="env-select">
+      <option value="https://tip-control-dev.spectatr.ai/">DEV</option>
+      <option value="https://tip-control.production.spectatr.ai/">PROD</option>
+    </select>
+  </div>
+
+  <!-- Upload Section -->
+  <div class="section" id="upload-section">
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-csv">CSV Upload</button>
+      <button class="mode-tab" id="tab-manual">Manual Input</button>
+    </div>
+
+    <!-- CSV content -->
+    <div id="csv-content">
+      <label class="upload-label" for="excel-input">
+        <div class="upload-icon">📂</div>
+        <div class="upload-text">Drop file or click to upload</div>
+        <div class="upload-sub">.xlsx, .xls or .csv supported</div>
+        <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" hidden />
+      </label>
+      <div style="text-align:center;margin-top:8px;">
+        <button class="btn-link" id="btn-download-template">⬇ Download Template CSV</button>
+      </div>
+    </div>
+
+    <!-- Manual content -->
+    <div id="manual-content" class="hidden">
+
+      <!-- Tournament -->
+      <div class="me-row">
+        <div class="me-check-row">
+          <input type="checkbox" id="cb-tournament" checked />
+          <label for="cb-tournament">Tournament</label>
+        </div>
+        <input type="text" class="me-input" id="inp-tournament" placeholder="New tournament name" />
+      </div>
+
+      <!-- Stage -->
+      <div class="me-row">
+        <div class="me-check-row">
+          <input type="checkbox" id="cb-stage" checked />
+          <label for="cb-stage">Stage</label>
+        </div>
+        <input type="text" class="me-input" id="inp-stage" placeholder="New stage name" />
+      </div>
+
+      <!-- Substage -->
+      <div class="me-row">
+        <div class="me-check-row">
+          <input type="checkbox" id="cb-substage" checked />
+          <label for="cb-substage">Substage</label>
+        </div>
+        <input type="text" class="me-input" id="inp-substage" placeholder="New substage name" />
+        <div id="substage-format-wrap" class="me-format-row">
+          <label class="me-label">Format</label>
+          <select class="me-select" id="inp-format">
+            <option value="ONE_V_ONE">1 vs 1</option>
+            <option value="FFA">FFA</option>
+          </select>
+        </div>
+        <!-- FFA extra fields -->
+        <div id="ffa-fields" class="hidden">
+          <div class="me-format-row" style="margin-top:6px">
+            <label class="me-label">FFA Type</label>
+            <select class="me-select" id="inp-ffa-format">
+              <option value="Simple Group">Simple Group</option>
+              <option value="Round Robin">Round Robin</option>
+            </select>
+          </div>
+          <div class="me-ffa-grid">
+            <div class="me-ffa-field">
+              <label class="me-label">Teams</label>
+              <input type="number" class="me-input-count" id="inp-ffa-teams" value="2" min="1" />
+            </div>
+            <div class="me-ffa-field">
+              <label class="me-label">Players/Team</label>
+              <input type="number" class="me-input-count" id="inp-ffa-ppt" value="1" min="1" />
+            </div>
+            <div class="me-ffa-field">
+              <label class="me-label">Matches/Series</label>
+              <input type="number" class="me-input-count" id="inp-ffa-mps" value="1" min="1" />
+            </div>
+            <div class="me-ffa-field">
+              <label class="me-label">Qualifiers</label>
+              <input type="number" class="me-input-count" id="inp-ffa-qual" value="1" min="1" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teams -->
+      <div class="me-row">
+        <div class="me-check-row">
+          <input type="checkbox" id="cb-teams" checked />
+          <label for="cb-teams">Teams</label>
+        </div>
+        <div class="me-team-row">
+          <input type="text" class="me-input-half" id="inp-team1-name" placeholder="Team 1 name" />
+          <input type="text" class="me-input-abbr" id="inp-team1-abbr" placeholder="Abbr" maxlength="5" />
+        </div>
+        <div class="me-team-row">
+          <input type="text" class="me-input-half" id="inp-team2-name" placeholder="Team 2 name" />
+          <input type="text" class="me-input-abbr" id="inp-team2-abbr" placeholder="Abbr" maxlength="5" />
+        </div>
+      </div>
+
+      <!-- Players -->
+      <div class="me-row">
+        <div class="me-check-row">
+          <input type="checkbox" id="cb-players" checked />
+          <label for="cb-players">Players</label>
+        </div>
+        <div id="players-section">
+          <div class="me-players-label">Team 1</div>
+          <div id="team1-players"></div>
+          <button class="btn-add-player" data-team="1">+ Add Player</button>
+          <div class="me-players-label" style="margin-top:6px">Team 2</div>
+          <div id="team2-players"></div>
+          <button class="btn-add-player" data-team="2">+ Add Player</button>
+        </div>
+      </div>
+
+      <!-- Define Groups -->
+      <div class="me-row">
+        <div class="me-check-row">
+          <input type="checkbox" id="cb-definegroups" />
+          <label for="cb-definegroups">Define Groups</label>
+          <span class="me-hint">assigns teams &amp; players to substage</span>
+        </div>
+      </div>
+
+      <!-- Match -->
+      <div class="me-row">
+        <div class="me-check-row">
+          <input type="checkbox" id="cb-match" checked />
+          <label for="cb-match">Match</label>
+        </div>
+        <div id="match-fields">
+          <input type="text" class="me-input" id="inp-series-name" placeholder="Series name (optional)" />
+          <div class="me-format-row">
+            <label class="me-label">Count</label>
+            <input type="number" class="me-input-count" id="inp-match-count" value="1" min="1" max="100" />
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-run-manual" style="margin-top:4px">▶ Run</button>
+    </div>
+  </div>
+
+  <!-- Preview Section -->
+  <div class="section hidden" id="preview-section">
+    <div class="preview-header">
+      <span id="preview-title">Data Preview</span>
+      <button class="btn-link" id="change-file">Change file</button>
+    </div>
+    <div id="preview-stats"></div>
+    <div id="preview-table-wrap"></div>
+  </div>
+
+  <!-- Actions -->
+  <div class="section hidden" id="action-section">
+    <button class="btn-primary" id="btn-run">▶  Start Full Automation</button>
+    <div class="match-only-combined">
+      <button class="btn-match-only" id="btn-match-only">🎯 Match Only</button>
+      <button class="match-count-btn" id="repeat-minus">−</button>
+      <span class="match-count-display" id="repeat-display">1</span>
+      <button class="match-count-btn" id="repeat-plus">+</button>
+      <input type="hidden" id="repeat-count" value="1" />
+    </div>
+    <button class="btn-teams-only" id="btn-teams-only">👥 Teams &amp; Players Only</button>
+    <button class="btn-secondary" id="btn-export-ids" disabled>⬇ Export IDs</button>
+  </div>
+
+  <!-- Progress Section -->
+  <div class="section hidden" id="progress-section">
+    <div class="match-counter hidden" id="match-counter">
+      <div class="match-counter-box">
+        <span class="match-counter-num" id="match-counter-num">0</span>
+        <span class="match-counter-label">Matches Created</span>
+      </div>
+      <div class="match-counter-box">
+        <span class="match-counter-num" id="match-counter-total">0</span>
+        <span class="match-counter-label">Total Planned</span>
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div id="progress-percent">0%</div>
+    <div class="control-grid">
+      <button class="btn-pause" id="btn-pause">⏸ Pause</button>
+      <button class="btn-stop" id="btn-stop">⏹ Stop</button>
+      <button class="btn-restart" id="btn-restart">↺ Restart</button>
+      <button class="btn-cancel" id="btn-cancel">✕ Cancel</button>
+    </div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+
+  <!-- Match prompt overlay (shown after full automation completes) -->
+  <div class="match-prompt-overlay hidden" id="match-prompt">
+    <div class="match-prompt-box">
+      <div class="match-prompt-title">🎯 Create Matches</div>
+      <div class="match-prompt-sub">Tournament ready! How many matches to create?</div>
+      <div class="match-prompt-row">
+        <input type="number" id="match-prompt-count" value="1" min="1" max="100" />
+        <button class="btn-prompt-start" id="btn-prompt-start">Start</button>
+        <button class="btn-prompt-skip" id="btn-prompt-skip">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ID Export Section -->
+  <div class="section hidden" id="export-section">
+    <h3>Created IDs</h3>
+    <textarea id="ids-output" readonly rows="8"></textarea>
+    <button class="btn-primary" id="btn-copy-ids">Copy JSON</button>
+    <button class="btn-secondary" id="btn-download-ids">Download CSV</button>
+  </div>
+
+  <script src="lib/xlsx.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

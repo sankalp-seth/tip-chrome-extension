@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "TIP Automator",
+  "version": "1.0",
+  "description": "Automate tournament, team, player and match creation in TIP Control Center",
+  "permissions": ["activeTab", "scripting", "storage", "tabs", "notifications", "sidePanel"],
+  "host_permissions": [
+    "https://tip-control-dev.spectatr.ai/*",
+    "https://tip-control.production.spectatr.ai/*"
+  ],
+  "action": {},
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/xlsx.min.js"],
+      "matches": [
+        "https://tip-control-dev.spectatr.ai/*",
+        "https://tip-control.production.spectatr.ai/*"
+      ]
+    }
+  ]
+}
