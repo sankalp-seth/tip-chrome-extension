@@ -8,15 +8,19 @@
 <body>
   <div class="header">
     <h1>TIP Automator</h1>
-    <select id="env-select" class="env-select">
-      <option value="https://tip-control-dev.spectatr.ai/">DEV</option>
-      <option value="https://tip-control.production.spectatr.ai/">PROD</option>
-    </select>
+    <div class="env-dropdown" id="env-dropdown">
+      <button class="env-select" id="env-btn">DEV <span class="env-arrow">▾</span></button>
+      <div class="env-options" id="env-options">
+        <div class="env-option env-option-active" data-value="https://tip-control-dev.spectatr.ai/">DEV</div>
+        <div class="env-option" data-value="https://tip-control.production.spectatr.ai/">PROD</div>
+      </div>
+    </div>
   </div>
 
   <!-- Upload Section -->
   <div class="section" id="upload-section">
-    <div class="mode-tabs">
+    <div class="mode-tabs" id="mode-tabs">
+      <div class="tab-slider" id="tab-slider"></div>
       <button class="mode-tab active" id="tab-csv">CSV Upload</button>
       <button class="mode-tab" id="tab-manual">Manual Input</button>
     </div>
@@ -43,7 +47,8 @@
           <input type="checkbox" id="cb-tournament" checked />
           <label for="cb-tournament">Tournament</label>
         </div>
-        <input type="text" class="me-input" id="inp-tournament" placeholder="New tournament name" />
+        <input type="text" class="me-input" id="inp-tournament" placeholder="New tournament name" list="dl-tournaments" autocomplete="off" />
+        <datalist id="dl-tournaments"></datalist>
       </div>
 
       <!-- Stage -->
@@ -52,7 +57,8 @@
           <input type="checkbox" id="cb-stage" checked />
           <label for="cb-stage">Stage</label>
         </div>
-        <input type="text" class="me-input" id="inp-stage" placeholder="New stage name" />
+        <input type="text" class="me-input" id="inp-stage" placeholder="New stage name" list="dl-stages" autocomplete="off" />
+        <datalist id="dl-stages"></datalist>
       </div>
 
       <!-- Substage -->
@@ -61,7 +67,8 @@
           <input type="checkbox" id="cb-substage" checked />
           <label for="cb-substage">Substage</label>
         </div>
-        <input type="text" class="me-input" id="inp-substage" placeholder="New substage name" />
+        <input type="text" class="me-input" id="inp-substage" placeholder="New substage name" list="dl-substages" autocomplete="off" />
+        <datalist id="dl-substages"></datalist>
         <div id="substage-format-wrap" class="me-format-row">
           <label class="me-label">Format</label>
           <select class="me-select" id="inp-format">

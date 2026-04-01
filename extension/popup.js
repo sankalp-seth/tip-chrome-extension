@@ -4,6 +4,52 @@ let createdIds = {};
 let inputMode = 'csv'; // 'csv' | 'manual'
 let manualPlayers1 = [];
 let manualPlayers2 = [];
+let lastRunConfig = null; // saved before each run so DONE handler can persist names
+
+// ===== Name History (chrome.storage.local) =====
+const HISTORY_KEY = 'tip_name_history';
+const HISTORY_MAX = 15;
+
+async function loadNameHistory() {
+  try {
+    const data = await chrome.storage.local.get(HISTORY_KEY);
+    const h = data[HISTORY_KEY] || { tournaments: [], stages: [], substages: [] };
+    _populateDatalist('dl-tournaments', h.tournaments || []);
+    _populateDatalist('dl-stages',      h.stages      || []);
+    _populateDatalist('dl-substages',   h.substages   || []);
+  } catch (_) {}
+}
+
+async function saveNameHistory(config) {
+  if (!config) return;
+  try {
+    const data = await chrome.storage.local.get(HISTORY_KEY);
+    const h = data[HISTORY_KEY] || { tournaments: [], stages: [], substages: [] };
+    _addToHistory(h.tournaments, config.tournament?.name);
+    _addToHistory(h.stages,      config.stage?.name);
+    _addToHistory(h.substages,   config.substage?.name);
+    await chrome.storage.local.set({ [HISTORY_KEY]: h });
+    await loadNameHistory(); // refresh datalists immediately
+  } catch (_) {}
+}
+
+function _addToHistory(arr, name) {
+  if (!name || !name.trim()) return;
+  const n = name.trim();
+  const idx = arr.findIndex(x => x.toLowerCase() === n.toLowerCase());
+  if (idx !== -1) arr.splice(idx, 1); // remove duplicate
+  arr.unshift(n); // add to front
+  if (arr.length > HISTORY_MAX) arr.length = HISTORY_MAX;
+}
+
+function _populateDatalist(id, names) {
+  const dl = document.getElementById(id);
+  if (!dl) return;
+  dl.innerHTML = names.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+}
+
+// Load history when popup opens
+loadNameHistory();
 
 // ===== DOM Refs =====
 const uploadSection     = document.getElementById('upload-section');
@@ -50,10 +96,12 @@ btnChangeFile.addEventListener('click', () => {
 });
 
 // ===== Mode Tabs =====
+const tabSlider = document.getElementById('tab-slider');
 document.getElementById('tab-csv').addEventListener('click', () => {
   inputMode = 'csv';
   document.getElementById('tab-csv').classList.add('active');
   document.getElementById('tab-manual').classList.remove('active');
+  tabSlider.classList.remove('slide-right');
   show(document.getElementById('csv-content'));
   hide(document.getElementById('manual-content'));
 });
@@ -61,6 +109,7 @@ document.getElementById('tab-manual').addEventListener('click', () => {
   inputMode = 'manual';
   document.getElementById('tab-manual').classList.add('active');
   document.getElementById('tab-csv').classList.remove('active');
+  tabSlider.classList.add('slide-right');
   hide(document.getElementById('csv-content'));
   show(document.getElementById('manual-content'));
 });
@@ -227,7 +276,8 @@ document.getElementById('btn-run-manual').addEventListener('click', async () => 
   const config = buildManualConfig();
 
   // Basic validation
-  if (!config.tournament.name) { alert('Tournament name is required.'); return; }
+  const needsTournament = config.create.tournament || config.create.stage || config.create.substage || config.create.match || config.create.defineGroups;
+  if (needsTournament && !config.tournament.name) { alert('Tournament name is required.'); return; }
   if ((config.create.match || config.create.defineGroups) && (!config.teams[0].name || !config.teams[1].name)) {
     alert('Both team names are required for Define Groups or Match.'); return;
   }
@@ -265,6 +315,7 @@ document.getElementById('btn-run-manual').addEventListener('click', async () => 
     await sleep(500);
   } catch (e) { addLog('Script inject error: ' + e.message, 'error'); }
 
+  lastRunConfig = config;
   chrome.tabs.sendMessage(tab.id, { type: 'START_MANUAL', config, creds: getSelectedCreds() }, response => {
     if (chrome.runtime.lastError) addLog('❌ Could not reach TIP tab: ' + chrome.runtime.lastError.message, 'error');
   });
@@ -410,7 +461,27 @@ function showPreview(rows, data) {
 }
 
 // ===== TIP Environment =====
-const envSelect = document.getElementById('env-select');
+let _selectedEnvValue = 'https://tip-control-dev.spectatr.ai/';
+
+const envDropdown = document.getElementById('env-dropdown');
+const envBtn      = document.getElementById('env-btn');
+const envOptions  = document.querySelectorAll('.env-option');
+
+envBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  envDropdown.classList.toggle('open');
+});
+document.addEventListener('click', () => envDropdown.classList.remove('open'));
+
+envOptions.forEach(opt => {
+  opt.addEventListener('click', () => {
+    _selectedEnvValue = opt.dataset.value;
+    envBtn.childNodes[0].textContent = opt.textContent + ' ';
+    envOptions.forEach(o => o.classList.remove('env-option-active'));
+    opt.classList.add('env-option-active');
+    envDropdown.classList.remove('open');
+  });
+});
 
 const ENV_CREDS = {
   'https://tip-control-dev.spectatr.ai/':        { username: 'sankalp', password: 'sankalp' },
@@ -418,7 +489,7 @@ const ENV_CREDS = {
 };
 
 function getSelectedOrigin() {
-  return envSelect.value;
+  return _selectedEnvValue;
 }
 function getSelectedPattern() {
   return getSelectedOrigin() + '*';
@@ -508,6 +579,20 @@ btnCancel.addEventListener('click', async () => {
 });
 
 async function startAutomation(tabId, matchOnly = false, msgType = null) {
+  // Save tournament/stage/substage names from CSV data for dropdown history
+  if (parsedData) {
+    for (const game of parsedData) {
+      for (const tournament of (game.tournaments || [])) {
+        const tName = tournament.name;
+        for (const stage of (tournament.stages || [])) {
+          const sName = stage.name;
+          for (const substage of (stage.substages || [])) {
+            lastRunConfig = { tournament: { name: tName }, stage: { name: sName }, substage: { name: substage.name } };
+          }
+        }
+      }
+    }
+  }
   activeTabId = tabId;
   isPaused = false;
   lastMatchOnly = matchOnly;
@@ -638,6 +723,7 @@ function attachMessageHandler() {
       btnExportIds.disabled = false;
       show(exportSection);
       idsOutput.value = JSON.stringify(createdIds, null, 2);
+      saveNameHistory(lastRunConfig); // persist tournament/stage/substage names for dropdowns
       // Show match prompt only after a full run (not match-only)
       if (!lastMatchOnly) {
         matchPromptCount.value = 1;

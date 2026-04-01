@@ -815,6 +815,25 @@ async function createPlayer(playerName, dob, teamName) {
   // Fill "In Game Name" — REQUIRED field
   await fillInputNear('In Game Name', playerName).catch(() => {});
 
+  // Fill Nickname — same as player name
+  // Uses execCommand('insertText') as fallback because setReactInput alone may not trigger
+  // React's onChange handler for this specific field.
+  await waitFor(() => {
+    const root = activeDialog() || document.body;
+    const inp = root.querySelector('input[placeholder*="Nickname" i]')
+      || root.querySelector('input[aria-label*="Nickname" i]');
+    return (inp && !inp.disabled) ? inp : null;
+  }, 5000).then(async inp => {
+    inp.focus();
+    // Clear existing value first
+    setReactInput(inp, '');
+    // Insert text via execCommand — triggers React synthetic input event reliably
+    document.execCommand('insertText', false, playerName);
+    // Fallback: also fire via native setter in case execCommand is blocked
+    if (!inp.value) setReactInput(inp, playerName);
+    await sleep(200);
+  }).catch(() => {});
+
   // Fill DOB (input[type="date"] is excluded from fillInputNear, handle separately)
   if (dob) {
     try {
